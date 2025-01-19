@@ -109,7 +109,7 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
         https://raw.githubusercontent.com/vidurp/generic/refs/heads/main/pascalvoc.py
         
         Example JSON File
-        https://raw.githubusercontent.com/vidurp/generic/refs/heads/main/extras/voc2005.json
+        extras\voc2005.json
         
         ImgScale - Images are scaled to default 224,224
 
