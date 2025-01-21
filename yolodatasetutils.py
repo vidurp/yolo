@@ -34,15 +34,15 @@ def CreateOutputTensor( jsondata, idx, ImgScale, ClassLabels, C, S, B ):
     """
     TruthTensor = np.zeros(shape=(S,S,((5*B) + C)))
 
-    NumDetections = jsondata['Files'][idx]['numobjects']
+    NumDetections = jsondata['files'][idx]['numobjects']
 
     #Grid Cell size in Pixels
     xGridSize = ImgScale[0] // S
     yGridSize = ImgScale[1] // S
 
     # true image size
-    imgwidth = int(jsondata['Files'][idx]['imagesize']['width'])
-    imgheight  = int(jsondata['Files'][idx]['imagesize']['height'])
+    imgwidth = int(jsondata['files'][idx]['imagesize']['width'])
+    imgheight  = int(jsondata['files'][idx]['imagesize']['height'])
 
     # Calculate x,y coordinate scale percentage
     xscale = ImgScale[0] / imgwidth 
@@ -53,14 +53,14 @@ def CreateOutputTensor( jsondata, idx, ImgScale, ClassLabels, C, S, B ):
 
     for obj in range(int(NumDetections)):
         # Object Class 
-        ImageClass = jsondata['Files'][idx]['object'][obj]['label']
+        ImageClass = jsondata['files'][idx]['object'][obj]['label']
         ClassIndex = ClassLabels.index(ImageClass)
 
         # Bounding Box
-        xmin = int(jsondata['Files'][idx]['object'][obj]['bndbox']['xmin'])
-        ymin = int(jsondata['Files'][idx]['object'][obj]['bndbox']['ymin'])
-        xmax = int(jsondata['Files'][idx]['object'][obj]['bndbox']['xmax'])
-        ymax = int(jsondata['Files'][idx]['object'][obj]['bndbox']['ymax'])
+        xmin = int(jsondata['files'][idx]['object'][obj]['bndbox']['xmin'])
+        ymin = int(jsondata['files'][idx]['object'][obj]['bndbox']['ymin'])
+        xmax = int(jsondata['files'][idx]['object'][obj]['bndbox']['xmax'])
+        ymax = int(jsondata['files'][idx]['object'][obj]['bndbox']['ymax'])
 
         # Rescale bounding box from True Image Dimensions to ImgScale
         width = ( xmax - xmin ) * xscale
@@ -133,8 +133,8 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
     # Extract Class Labels as a list
     ClassLabels = [ indx['label'] for indx in jsondata['labels']]
 
-    for idx in range(int(jsondata['NumImages'])):
-        ImgData = plt.imread(jsondata['Files'][idx]['filepath'])
+    for idx in range(int(jsondata['numimages'])):
+        ImgData = plt.imread(jsondata['files'][idx]['filepath'])
         # convert monochrome image to color, i.e. 3 channels
         if ImgData.ndim != 3:
             ImgData = cv2.cvtColor(ImgData, cv2.COLOR_GRAY2BGR)
