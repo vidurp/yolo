@@ -2,6 +2,61 @@ import json
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
+import random
+import itertools
+
+def YOLOViewPredImage( img, labels, ClassLabels, imgshape = ( 224, 224, 3 ), S = 7, B = 2, ConfidenceThreshold = 0.5 ):
+    """
+    Function draws and annotates image pixels and labels for a YOLO dataset created by
+    CreateYOLODataSet()
+
+    Args:
+        img         - image tensor
+        labels      - label tensor
+        ClassLabels - string List of image classes
+        imgshape    - YOLO Image shape. Default ( 224, 224, 3 )
+        S           - Num Grid Cells Per Dimension. Default 7
+        B           - Num Predictions Per Grid Cell. Default 2
+        ConfidenceThreshold - Draw Bounding box if Threshold is greater
+                             than this value. Default 0.5
+
+    Returns:
+        None
+    """
+    C = len(ClassLabels)
+
+    if img.ndim == 4 and img.shape[0] == 1:
+        img = tf.squeeze(img)
+
+    # extract image
+    img = (img.numpy()*255).astype(np.uint8)
+
+    # Decode and overlay labels
+    labels = tf.reshape( labels, shape=( S, S ,((B*5) + C) ) )
+
+    for i,j,b in itertools.product(range(7),range(7),range(2)):
+        Conf = labels[i,j,(b*5) + 4]
+        if Conf.numpy() > ConfidenceThreshold:
+            xmin = (labels[i,j,(b*5)]*imgshape[0]).numpy().astype(np.uint32)
+            ymin = (labels[i,j,(b*5)+1]*imgshape[1]).numpy().astype(np.uint32)
+            width = (labels[i,j,(b*5)+2]*imgshape[0]).numpy().astype(np.uint32)
+            height = (labels[i,j,(b*5)+3]*imgshape[1]).numpy().astype(np.uint32)
+            topleft = ( xmin, ymin )
+            bottomright = ( xmin+width, ymin+height )
+            cv2.rectangle(img, topleft, bottomright,  (255, 0, 0), 2)
+
+            # Annotation Text
+            LabelText = ClassLabels[tf.argmax(labels[i,j,(B*5):],0)] + ' ' + str(Conf.numpy())
+            cv2.putText( img,
+                         LabelText,
+                         ( xmin, ymin-4 ),
+                         cv2.FONT_HERSHEY_SIMPLEX,
+                         0.3,
+                         (255,0,0),
+                         1)
+
+    plt.imshow(img)
+    plt.axis(False)
 
 def CreateOutputTensor( jsondata, idx, ImgScale, ClassLabels, C, S, B ): 
     """
