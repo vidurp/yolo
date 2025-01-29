@@ -198,7 +198,7 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
         # suppress it
         if ImgData.ndim == 3 and ImgData.shape[2] != 3:
             ImgData = ImgData[:,:,:3]
-        ImgData = cv2.resize( ImgData, dsize=ImgScale, interpolation=cv2.INTER_CUBIC)
+        ImgData = cv2.resize( ImgData, dsize=ImgScale, interpolation=cv2.INTER_AREA )
      
         ImgDataTensor.append( ImgData )
 
