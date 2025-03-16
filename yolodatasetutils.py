@@ -6,7 +6,39 @@ import random
 import itertools
 import tensorflow as tf
 
-def YOLOViewPredImage( img, labels, ClassLabels, imgshape = ( 224, 224, 3 ), S = 7, B = 2, ConfidenceThreshold = 0.5 ):
+def PrintYoloPreds( Predictions, ClassLabels, imgshape = ( 224, 224, 3 ), S = 7, B = 2, ConfidenceThreshold = 0.2 ):
+    """
+    Function Prints YOLO Predictions  
+    Args:
+        Predictions - Prediction Tensor Formatted as S x S x ( B*5 + C )
+        ClassLabels - string List of image classes
+        imgshape    - YOLO Image shape. Default ( 224, 224, 3 )
+        S           - Num Grid Cells Per Dimension. Default 7
+        B           - Num Predictions Per Grid Cell. Default 2
+        ConfidenceThreshold - Draw Bounding box if Threshold is greater
+                             than this value. Default 0.2
+
+    Returns:
+        None
+    """
+    C = len(ClassLabels)
+
+    # Decode and overlay labels
+    labels = tf.reshape( Predictions, shape=( S, S ,((B*5) + C) ) )
+
+    for i,j,b in itertools.product(range(7),range(7),range(2)):
+        Conf = labels[i,j,(b*5) + 4]
+        if Conf.numpy() > ConfidenceThreshold:
+            xmin = (labels[i,j,(b*5)]*imgshape[0]).numpy().astype(np.uint32)
+            ymin = (labels[i,j,(b*5)+1]*imgshape[1]).numpy().astype(np.uint32)
+            width = (labels[i,j,(b*5)+2]*imgshape[0]).numpy().astype(np.uint32)
+            height = (labels[i,j,(b*5)+3]*imgshape[1]).numpy().astype(np.uint32)
+            # Class Label Text
+            LabelText = ClassLabels[tf.argmax(labels[i,j,(B*5):],0)] + ' ' + str(Conf.numpy())
+            print( f'Class: {LabelText}  Conf: {Conf:.2f} bbox: [{xmin},{ymin},{width},{height}]' )
+
+
+def YOLOViewPredImage( img, labels, ClassLabels, imgshape = ( 224, 224, 3 ), S = 7, B = 2, ConfidenceThreshold = 0.2 ):
     """
     Function draws and annotates image pixels and labels for a YOLO dataset created by
     CreateYOLODataSet()
@@ -19,7 +51,7 @@ def YOLOViewPredImage( img, labels, ClassLabels, imgshape = ( 224, 224, 3 ), S =
         S           - Num Grid Cells Per Dimension. Default 7
         B           - Num Predictions Per Grid Cell. Default 2
         ConfidenceThreshold - Draw Bounding box if Threshold is greater
-                             than this value. Default 0.5
+                             than this value. Default 0.2
 
     Returns:
         None
