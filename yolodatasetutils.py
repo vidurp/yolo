@@ -209,8 +209,11 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
         ImgDataTensor - numpy list of resized images
 
         TruthTensor   - numpy list of truth tensors  
-
+        
+        ClassLabelsList - list of Class Labels
+        
         FileNameList  - list of Filepaths/names
+       
     """
     FileHandle = open(JSONFilePath, 'r')
     jsondata = json.load(FileHandle)
@@ -222,7 +225,7 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
     # Num Classes
     C = len(jsondata['labels'])
     # Extract Class Labels as a list
-    ClassLabels = [ indx['label'] for indx in jsondata['labels']]
+    ClassLabelsList = [ indx['label'] for indx in jsondata['labels']]
 
     for idx in range(int(jsondata['numimages'])):
         ImgData = plt.imread(jsondata['files'][idx]['filepath'])
@@ -238,10 +241,10 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
         ImgDataTensor.append( ImgData )
 
         # Output Tensor ( YOLO formatted )
-        YoloTensor = CreateOutputTensor( jsondata, idx, ImgScale, ClassLabels, C, S, B )
+        YoloTensor = CreateOutputTensor( jsondata, idx, ImgScale, ClassLabelsList, C, S, B )
         TruthTensor.append( YoloTensor )
         
         # FileName List
         FileNameList.append( jsondata['files'][idx]['filepath'] )
 
-    return ImgDataTensor, TruthTensor, FileNameList
+    return ImgDataTensor, TruthTensor, ClassLabelsList, FileNameList
