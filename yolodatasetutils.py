@@ -35,7 +35,7 @@ def PrintYOLOPreds( Predictions, ClassLabels, imgshape = ( 224, 224, 3 ), S = 7,
             height = (labels[i,j,(b*5)+3]*imgshape[1]).numpy().astype(np.uint32)
             # Class Label Text
             LabelText = ClassLabels[tf.argmax(labels[i,j,(B*5):],0)]
-            print( f'Class:{LabelText}  Conf:{Conf:.2f}  bbox:[{xmin},{ymin},{width},{height}]  Grid:{i},{j} Pr:{b}' )
+            print( f'Class:{LabelText}  Conf:{Conf:.2f}  bbox:[{xmin},{ymin},{width},{height}]  Grid:{i},{j} Pr:{Conf}' )
 
 
 def YOLOViewPredImage( img, labels, ClassLabels, imgshape = ( 224, 224, 3 ), S = 7, B = 2, ConfidenceThreshold = 0.2 ):
