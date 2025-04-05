@@ -28,12 +28,12 @@ def CalcIOU( BBoxTrue, BBoxPred ):
 
     AreaInterSection = tf.maximum( xbottom - xtop, 0.0 ) * tf.maximum( ybottom - ytop, 0.0 )
 
-    AUnion = AreaBBoxPred + AreaBBoxTrue - AreaInterSection
+    AUnion = AreaBBoxPred + AreaBBoxTrue - AreaInterSection +  + 0.0001
     iou = AreaInterSection / AUnion
     return iou
     
 @tf.function
-def YOLOLoss( Ytrue , Ypred ):
+def YoloLoss( Ytrue , Ypred ):
     """
     Loss Function for YOLO Algorithm
     Args:
@@ -42,60 +42,52 @@ def YOLOLoss( Ytrue , Ypred ):
         
     Returns: Loss Value
     """
-    PredT = tf.reshape( tf.convert_to_tensor( Ypred ), ( 7,7,17 ) )
-    TrueT = tf.reshape( tf.convert_to_tensor( Ytrue ), ( 7,7,17 ) )
+    # Passing -1 to first arg will automatically deduce batch size
+    # and reshape PredT, TrueT correctly
+    PredT = tf.reshape( Ypred , ( -1,7,7,17 ) )
+    TrueT = tf.reshape( Ytrue , ( -1,7,7,17 ) )
 
-    CategoricalCrossEntropyFunc = tf.keras.losses.CategoricalCrossentropy( )
+    ClassTrue = tf.reshape( TrueT[...,10:] , shape=(-1,7) )
+    ClassPred = tf.reshape( PredT[...,10:], shape=(-1,7) )
 
-    Loss = tf.constant(0, dtype=tf.float32)
+    # change 7x7xN into 49 x N 1D samples
+    BBox1True = tf.reshape( TrueT[...,0:4], shape=(-1,4) )
+    Conf1True = tf.reshape( TrueT[...,4], shape=(-1,) ) 
+    BBox2True = tf.reshape( TrueT[...,5:9], shape=(-1,4 ) )
+    Conf2True = tf.reshape( TrueT[...,9], shape=(-1,) )
 
-    for i,j in itertools.product(range(7),range(7)):
-        GridCellIOU = tf.constant(0, dtype=tf.float32)
-        BBoxLoss = tf.constant(0, dtype=tf.float32)
-        ConfLoss = tf.constant(0, dtype=tf.float32)
-        ClassificationLoss = tf.constant(0, dtype=tf.float32)
+    BBox1Pred = tf.reshape( PredT[...,0:4], shape=(-1,4) )
+    Conf1Pred = tf.reshape( PredT[...,4], shape=(-1,) ) 
+    BBox2Pred = tf.reshape( PredT[...,5:9], shape=(-1,4) )
+    Conf2Pred = tf.reshape( PredT[...,9], shape=(-1,) )
 
-        for b in range(2):
-            x_true = TrueT[i,j,(b*5)]
-            y_true = TrueT[i,j,(b*5)+1]
-            w_true = tf.abs(TrueT[i,j,(b*5)+2])
-            h_true = tf.abs(TrueT[i,j,(b*5)+3])
+    # BBox variables now have shape ( Batch x 49 , 4 ) for iou calculations
+    iou1 = Conf1True * CalcIOU( BBox1True, BBox1Pred )
+    iou2 = Conf2True * CalcIOU( BBox2True, BBox2Pred )
 
-            Present =  TrueT[i,j,(b*5)+4]
-            c_true = TrueT[i,j,10:]
+    # Find Responsible Predictor
+    ValidPredictor1 = tf.cast( tf.math.greater( iou1, iou2 ), dtype=tf.float32 )
+    ValidPredictor2 = tf.cast( tf.math.greater( iou2, iou1 ), dtype=tf.float32 )
 
+    # confidence loss from both predictors
+    ConfidenceLossPredictor1 = ValidPredictor1 * tf.square( Conf1True - Conf1Pred )
+    ConfidenceLossPredictor2 = ValidPredictor2 * tf.square( Conf2True - Conf2Pred )
+    Loss = tf.reduce_sum( ConfidenceLossPredictor1, axis = 0 )
+    Loss += tf.reduce_sum( ConfidenceLossPredictor2, axis = 0 )
 
-            x_pred = PredT[i,j,(b*5)]
-            y_pred = PredT[i,j,(b*5)+1]
-            w_pred = tf.abs(PredT[i,j,(b*5)+2])
-            h_pred = tf.abs(PredT[i,j,(b*5)+3])
+    # Classification Loss
+    ClassificationLoss = Conf1True * tf.cast(tf.square( tf.argmax(ClassTrue,axis=1) -  tf.argmax(ClassPred,axis=1) ), dtype=tf.float32 ) 
+    Loss += tf.reduce_sum( ClassificationLoss, axis = 0 )
 
-            Conf =  PredT[i,j,(b*5)+4]
-            c_pred = PredT[i,j,10:]
+    # Bounding Box Loss
+    BBoxLossPredictor1 = ValidPredictor1 * tf.reduce_sum( tf.square( BBox1True[:,:2] - BBox1Pred[:,:2] ) + 
+                                                          tf.square( tf.sqrt(BBox1True[:,2:]) - tf.sqrt(BBox1Pred[:,2:]) ), axis = 1 )
+    
+    BBoxLossPredictor2 = ValidPredictor2 * tf.reduce_sum( tf.square( BBox2True[:,:2] - BBox2Pred[:,:2] ) + 
+                                                          tf.square( tf.sqrt(BBox2True[:,2:]) - tf.sqrt(BBox2Pred[:,2:]) ), axis = 1 )
+    
 
-            TrueBBox = ( x_true, y_true, w_true, h_true )
-            PredBBox = ( x_pred, y_pred, w_pred, h_pred )
+    Loss += tf.reduce_sum( BBoxLossPredictor1, axis = 0 )
+    Loss += tf.reduce_sum( BBoxLossPredictor2, axis = 0 )
 
-
-            # Bounding Box Loss is specified by IOU metric
-            LocalIOU = CalcIOU( TrueBBox, PredBBox )
-
-            #if we have better
-            if tf.greater( LocalIOU, GridCellIOU ):
-                GridCellIOU = LocalIOU
-                BBoxLoss =  tf.square( x_true - x_pred ) + tf.square( y_true - y_pred ) +  tf.square( w_true - w_pred ) + tf.square( h_true - h_pred )
-                BBoxLoss = tf.multiply( BBoxLoss, Present )
-                # Confidence Loss
-                ConfLoss = tf.square( Present - Conf )
-                ConfLoss = tf.multiply( ConfLoss, Present )
-
-        # Classification Loss is only applied if there is an object in this grid cell
-        if tf.greater( ConfLoss, 0.0 ):
-            ClassificationLoss = CategoricalCrossEntropyFunc( c_true, c_pred )
-
-
-
-        Loss = tf.add( Loss, BBoxLoss )
-        Loss = tf.add( Loss, ConfLoss )
-        Loss = tf.add( Loss, ClassificationLoss )
     return Loss
