@@ -128,7 +128,7 @@ def CreateOutputTensor( jsondata, idx, ImgScale, ClassLabels, C, S, B ):
         B:        Number of predictions per grid cell
 
     Returns:
-        TruthTensor: numpy array of shape ( S, S, ( 5B + C )) 
+        TruthTensor: numpy array of shape ( S, S, ( 5B + C )). False if image is rejected
     """
     TruthTensor = np.zeros(shape=(S,S,((5*B) + C)))
 
@@ -159,6 +159,17 @@ def CreateOutputTensor( jsondata, idx, ImgScale, ClassLabels, C, S, B ):
         ymin = int(jsondata['files'][idx]['object'][obj]['bndbox']['ymin'])
         xmax = int(jsondata['files'][idx]['object'][obj]['bndbox']['xmax'])
         ymax = int(jsondata['files'][idx]['object'][obj]['bndbox']['ymax'])
+        
+        
+        # Validate DataSet
+        if( xmin >= xmax or 
+            ymin >= ymax or 
+            xmin >= imgwidth or 
+            xmax >= imgwidth or
+            ymin >= imgheight or
+            ymax >= imgheight ):
+            return False
+        
 
         # Rescale bounding box from True Image Dimensions to ImgScale
         width = ( xmax - xmin ) * xscale
@@ -223,6 +234,9 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
         ClassLabelsList - list of Class Labels
         
         FileNameList  - list of Filepaths/names
+        
+        RejectedFilesNameList - list of file names that was not added 
+                                to dataset
        
     """
     FileHandle = open(JSONFilePath, 'r')
@@ -231,11 +245,12 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
     ImgDataTensor = []
     TruthTensor = []
     FileNameList = []
-
+    RejectedFilesNameList = []
+    
     # Num Classes
     C = len(jsondata['labels'])
     # Extract Class Labels as a list
-    ClassLabelsList = [ indx['label'] for indx in jsondata['labels']]
+    ClassLabelsList = [indx['label'] for indx in jsondata['labels']]
 
     for idx in range(int(jsondata['numimages'])):
         ImgData = plt.imread(jsondata['files'][idx]['filepath'])
@@ -248,13 +263,18 @@ def CreateYOLODataSet( JSONFilePath, ImgScale = (224,224), S = 7, B = 2 ):
             ImgData = ImgData[:,:,:3]
         ImgData = cv2.resize( ImgData, dsize=ImgScale, interpolation=cv2.INTER_AREA )
      
-        ImgDataTensor.append( ImgData )
-
+        
         # Output Tensor ( YOLO formatted )
         YoloTensor = CreateOutputTensor( jsondata, idx, ImgScale, ClassLabelsList, C, S, B )
-        TruthTensor.append( YoloTensor )
         
-        # FileName List
-        FileNameList.append( jsondata['files'][idx]['filepath'] )
+        # CreateOutputTensor will return False if image is rejected
+        if type(YoloTensor) != bool:
+            TruthTensor.append( YoloTensor )
+            ImgDataTensor.append( ImgData )
+            # FileName List
+            FileNameList.append( jsondata['files'][idx]['filepath'] )
+        else:
+            RejectedFilesNameList.append( jsondata['files'][idx]['filepath'] )
+            
 
-    return ImgDataTensor, TruthTensor, ClassLabelsList, FileNameList
+    return ImgDataTensor, TruthTensor, ClassLabelsList, FileNameList, RejectedFilesNameList
