@@ -80,9 +80,19 @@ def YOLOViewPredImage( img, labels, ClassLabels, imgshape = ( 224, 224, 3 ), S =
 
             # Annotation Text
             LabelText = ClassLabels[tf.argmax(labels[i,j,(B*5):],0)] + ' ' + str(Conf.numpy())
+            
+            # Relocate Label Text
+            xmin += 2
+            
+            if ymin <= 4.0:
+                #Relocate label to inside the box
+                ymin += 10
+            else:
+                ymin -= 4
+            
             cv2.putText( img,
                          LabelText,
-                         ( xmin, ymin-4 ),
+                         ( xmin, ymin ),
                          cv2.FONT_HERSHEY_SIMPLEX,
                          0.3,
                          (255,0,0),
